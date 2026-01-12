@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image Comparison Report</title>
+<style>
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; line-height: 1.6; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .header h1 { font-size: 18px; margin-bottom: 3px; }
+        .header p { opacity: 0.9; font-size: 11px; }
+        .controls { background: white; padding: 15px 30px; border-bottom: 1px solid #e0e0e0; position: sticky; top: 48px; z-index: 99; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
+        .filter-group { display: flex; gap: 10px; align-items: center; }
+        .filter-btn { padding: 8px 16px; border: 2px solid #e0e0e0; background: white; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s; }
+        .filter-btn:hover { border-color: #667eea; background: #f8f9ff; }
+        .filter-btn.active { background: #667eea; color: white; border-color: #667eea; }
+        .search-box { padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 13px; width: 250px; }
+        .search-box:focus { outline: none; border-color: #667eea; }
+        .summary { display: flex; gap: 15px; padding: 20px 30px; background: #f8f9fa; }
+        .summary-card { flex: 1; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center; }
+        .summary-card h3 { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+        .summary-card .number { font-size: 28px; font-weight: bold; margin-bottom: 5px; }
+        .summary-card.total .number { color: #667eea; }
+        .summary-card.passed .number { color: #10b981; }
+        .summary-card.failed .number { color: #ef4444; }
+        .comparison-list { padding: 20px 30px; max-width: 1600px; margin: 0 auto; }
+        .comparison-item { margin-bottom: 15px; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; background: white; transition: all 0.2s; }
+        .comparison-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .comparison-item.hidden { display: none; }
+        .comparison-header { padding: 12px 20px; background: #f8f9fa; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+        .comparison-header:hover { background: #f0f1f3; }
+        .comparison-header h3 { font-size: 14px; color: #333; display: flex; align-items: center; gap: 10px; }
+        .image-name { cursor: text; user-select: all; padding: 2px 6px; border-radius: 3px; transition: background 0.2s; }
+        .image-name:hover { background: #e8e8e8; }
+        .expand-icon { font-size: 12px; color: #666; transition: transform 0.2s; }
+        .comparison-item.expanded .expand-icon { transform: rotate(90deg); }
+        .status { padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+        .status.pass { background: #d1fae5; color: #065f46; }
+        .status.fail { background: #fee2e2; color: #991b1b; }
+        .comparison-content { display: none; }
+        .comparison-item.expanded .comparison-content { display: block; }
+        .details { padding: 12px 20px; background: #fffbeb; border-top: 1px solid #e0e0e0; font-size: 12px; }
+        .details-row { display: flex; align-items: center; margin-bottom: 6px; }
+        .details-row:last-child { margin-bottom: 0; }
+        .details-label { font-weight: 600; margin-right: 8px; min-width: 90px; }
+        .check { color: #10b981; margin-right: 5px; }
+        .cross { color: #ef4444; margin-right: 5px; }
+        .difference { color: #64748b; font-size: 12px; margin-left: 98px; margin-top: 6px; padding: 8px 12px; background: #f8fafc; border-left: 3px solid #94a3b8; border-radius: 3px; line-height: 1.5; }
+        .difference.info { color: #475569; background: #f1f5f9; border-left-color: #64748b; }
+        .difference.warning { color: #92400e; background: #fef3c7; border-left-color: #f59e0b; }
+        .images { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-top: 1px solid #e0e0e0; }
+        .image-container { padding: 15px; background: #fafafa; text-align: center; position: relative; }
+        .image-container:first-child { border-right: 1px solid #e0e0e0; }
+        .image-label { font-size: 11px; font-weight: 600; color: #666; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .image-container img { max-width: 100%; height: auto; border: 1px solid #e0e0e0; border-radius: 4px; cursor: pointer; transition: opacity 0.2s; }
+        .image-container img:hover { opacity: 0.85; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); align-items: center; justify-content: center; }
+        .modal.active { display: flex; }
+        .modal-content { max-width: 95%; max-height: 95%; object-fit: contain; border: 2px solid #fff; border-radius: 4px; }
+        .modal-close { position: absolute; top: 20px; right: 40px; color: white; font-size: 40px; font-weight: bold; cursor: pointer; z-index: 1001; background: rgba(0,0,0,0.7); width: 50px; height: 50px; border-radius: 25px; display: flex; align-items: center; justify-content: center; line-height: 1; user-select: none; }
+        .modal-close:hover { background: rgba(0,0,0,0.9); }
+        .modal-nav { position: absolute; top: 50%; transform: translateY(-50%); color: white; font-size: 48px; font-weight: bold; cursor: pointer; padding: 20px; user-select: none; background: rgba(0,0,0,0.7); border-radius: 4px; z-index: 1001; }
+        .modal-nav:hover { background: rgba(0,0,0,0.9); }
+        .modal-nav.prev { left: 20px; }
+        .modal-nav.next { right: 20px; }
+        .modal-info { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: white; background: rgba(0,0,0,0.8); padding: 15px 25px; border-radius: 4px; font-size: 14px; z-index: 1001; max-width: 80%; text-align: center; }
+        .keyboard-hint { font-size: 11px; color: #666; margin-left: auto; }
+        .no-results { text-align: center; padding: 60px 20px; color: #666; }
+        .no-results-icon { font-size: 48px; margin-bottom: 15px; opacity: 0.5; }
+    
+</style>
+</head>
+<body>
+<div class="header">
+<h1>Image Comparison Report</h1>
+<p>Comparing images from two versions • 15 total comparisons</p>
+</div>
+<div class="controls">
+<div class="filter-group">
+<button class="filter-btn active" onclick="filterResults('all')">All (15)</button>
+<button class="filter-btn" onclick="filterResults('pass')">Passed (7)</button>
+<button class="filter-btn" onclick="filterResults('fail')">Failed (8)</button>
+</div>
+<div class="filter-group">
+<button class="filter-btn" onclick="expandAll()">▼ Expand All</button>
+<button class="filter-btn" onclick="collapseAll()">▲ Collapse All</button>
+</div>
+<input type="text" class="search-box" placeholder="Search by image name..." onkeyup="searchImages(this.value)">
+<span class="keyboard-hint">Click image to zoom • ↑↓ navigate • ←→ in zoom • ESC close</span>
+</div>
+<div class="summary">
+<div class="summary-card total"><h3>Total Compared</h3><div class="number">15</div></div>
+<div class="summary-card passed"><h3>Passed</h3><div class="number">7</div></div>
+<div class="summary-card failed"><h3>Failed</h3><div class="number">8</div></div>
+</div>
+<div class="comparison-list" id="comparisonList">
+<div class="comparison-item" data-status="pass" data-name="form_button_save.png" data-index="0">
+<div class="comparison-header" onclick="toggleExpand(this)">
+<h3><span class="expand-icon">▶</span><span class="image-name">form_button_save.png</span></h3>
+<span class="status pass">✓ PASS</span>
+</div>
+<div class="comparison-content">
+<div class="details">
+<div class="details-row"><span class="details-label">Text Match:</span><span class="check">✓</span><span>Match</span></div>
+<div class="details-row"><span class="details-label">Focus Match:</span><span class="check">✓</span><span>Match</span></div>
+
+</div>
+<div class="images">
+<div class="image-container"><div class="image-label">Version 1: test_images\version1</div><img src="report_images/version1/form_button_save.png" alt="form_button_save.png - Version 1" class="thumbnail-img" data-index="0" data-version="1" onclick="openModal('report_images/version1/form_button_save.png', 'form_button_save.png', 'Version 1', 0)"></div>
+<div class="image-container"><div class="image-label">Version 2: test_images\version2</div><img src="report_images/version2/form_button_save.png" alt="form_button_save.png - Version 2" class="thumbnail-img" data-index="0" data-version="2" onclick="openModal('report_images/version2/form_button_save.png', 'form_button_save.png', 'Version 2', 0)"></div>
+</div>
+</div>
+</div>
+<div class="comparison-item" data-status="fail" data-name="form_case_test.png" data-index="1">
+<div class="comparison-header" onclick="toggleExpand(this)">
+<h3><span class="expand-icon">▶</span><span class="image-name">form_case_test.png</span></h3>
+<span class="status fail">✗ FAIL</span>
+</div>
+<div class="comparison-content">
+<div class="details">
+<div class="details-row"><span class="details-label">Text Match:</span><span class="cross">✗</span><span>Mismatch</span></div>
+<div class="details-row"><span class="details-label">Focus Match:</span><span class="check">✓</span><span>Match</span></div>
+<div class="difference">Form content has significant differences</div><div class="difference info">💡 Review images carefully - multiple changes detected</div>
+</div>
+<div class="images">
+<div class="image-container"><div class="image-label">Version 1: test_images\version1</div><img src="report_images/version1/form_case_test.png" alt="form_case_test.png - Version 1" class="thumbnail-img" data-index="1" data-version="1" onclick="openModal('report_images/version1/form_case_test.png', 'form_case_test.png', 'Version 1', 1)"></div>
+<div class="image-container"><div class="image-label">Version 2: test_images\version2</div><img src="report_images/version2/form_case_test.png" alt="form_case_test.png - Version 2" class="thumbnail-img" data-index="1" data-version="2" onclick="openModal('report_images/version2/form_case_test.png', 'form_case_test.png', 'Version 2', 1)"></div>
+</div>
+</div>
+</div>
+<div class="comparison-item" data-status="pass" data-name="form_date_focus.png" data-index="2">
+<div class="comparison-header" onclick="toggleExpand(this)">
+<h3><span class="expand-icon">▶</span><span class="image-name">form_date_focus.png</span></h3>
+<span class="status pass">✓ PASS</span>
+</div>
+<div class="comparison-content">
+<div class="details">
+<div class="details-row"><span class="details-label">Text Match:</span><span class="check">✓</span><span>Match</span></div>
+<div class="details-row"><span class="details-label">Focus Match:</span><span class="check">✓</span><span>Match</span></div>
+
+</div>
+<div class="images">
+<div class="image-container"><div class="image-label">Version 1: test_images\version1</div><img src="report_images/version1/form_date_focus.png" alt="form_date_focus.png - Version 1" class="thumbnail-img" data-index="2" data-version="1" onclick="openModal('report_images/version1/form_date_focus.png', 'form_date_focus.png', 'Version 1', 2)"></div>
+<div class="image-container"><div class="image-label">Version 2: test_images\version2</div><img src="report_images/version2/form_date_focus.png" alt="form_date_focus.png - Version 2" class="thumbnail-img" data-index="2" data-version="2" onclick="openModal('report_images/version2/form_date_focus.png', 'form_date_focus.png', 'Version 2', 2)"></div>
+</div>
+</div>
+</div>
+<div class="comparison-item" data-status="fail" data-name="form_different_checkbox.png" data-index="3">
+<div class="comparison-header" onclick="toggleExpand(this)">
+<h3><span class="expand-icon">▶</span><span class="image-name">form_different_checkbox.png</span></h3>
+<span class="status fail">✗ FAIL</span>
+</div>
+<div class="comparison-content">
+<div class="details">
+<div class="details-row"><span class="details-label">Text Match:</span><span class="cross">✗</span><span>Mismatch</span></div>
+<div class="details-row"><span class="details-label">Focus Match:</span><span class="check">✓</span><span>Match</span></div>
+<div class="difference">Major content differences detected</div><div class="difference warning">⚠️ Significant structural or data changes</div><div class="difference info">💡 Manual review recommended</div>
+</div>
+<div class="images">
+<div class="image-container"><div class="image-label">Version 1: test_images\version1</div><img src="report_images/version1/form_different_checkbox.png" alt="form_different_checkbox.png - Version 1" class="thumbnail-img" data-index="3" data-version="1" onclick="openModal('report_images/version1/form_different_checkbox.png', 'form_different_checkbox.png', 'Version 1', 3)"></div>
+<div class="image-container"><div class="image-label">Version 2: test_images\version2</div><img src="report_images/version2/form_different_checkbox.png" alt="form_different_checkbox.png - Version 2" class="thumbnail-img" data-index="3" data-version="2" onclick="openModal('report_images/version2/form_different_checkbox.png', 'form_different_checkbox.png', 'Version 2', 3)"></div>
+</div>
+</div>
+</div>
+<div class="comparison-item" data-status="fail" data-name="form_different_dropdown.png" data-index="4">
+<div class="comparison-header" onclick="toggleExpand(this)">
+<h3><span class="expand-icon">▶</span><span class="image-name">form_different_dropdown.png</span></h3>
+<span class="status fail">✗ FAIL</span>
+</div>
+<div class="comparison-content">
+<div class="details">
+<div class="details-row"><span class="details-label">Text Match:</span><span class="cross">✗</span><span>Mismatch</span></div>
+<div class="details-row"><span class="details-label">Focus Match:</span><span class="check">✓</span><span>Match</span></div>
+<div class="difference">Form content has significant differences</div><div class="difference info">💡 Review images carefully - multiple changes detected</div>
+</div>
+<div class="images">
+<div class="image-container"><div class="image-label">Version 1: test_images\version1</div><img src="report_images/version1/form_different_dropdown.png" alt="form_different_dropdown.png - Version 1" class="thumbnail-img" data-index="4" data-version="1" onclick="openModal('report_images/version1/form_different_dropdown.png', 'form_different_dropdown.png', 'Version 1', 4)"></div>
+<div class="image-container"><div class="image-label">Version 2: test_images\version2</div><img src="report_images/version2/form_different_dropdown.png" alt="form_different_dropdown.png - Version 2" class="thumbnail-img" data-index="4" data-version="2" onclick="openModal('report_images/version2/form_different_dropdown.png', 'form_different_dropdown.png', 'Version 2', 4)"></div>
+</div>
+</div>
+</div>
+<div class="comparison-item" data-status="fail" data-name="form_different_focus.png" data-index="5">
+<div class="comparison-header" onclick="toggleExpand(this)">
+<h3><span class="expand-icon">▶</span><span class="image-name">form_different_focus.png</span></h3>
+<span class="status fail">✗ FAIL</span>
+</div>
+<div class="comparison-content">
+<div class="details">
+<div class="details-row"><span class="details-label">Text Match:</span><span class="cross">✗</span><span>Mismatch</span></div>
+<div class="details-row"><span class="details-label">Focus Match:</span><span class="check">✓</span><span>Match</span></div>
+<div class="difference">Form content has significant differences</div><div class="difference info">💡 Review images carefully - multiple changes detected</div>
+</div>
+<div class="images">
+<div class="image-container"><div class="image-label">Version 1: test_images\version1</div><img src="report_images/version1/form_different_focus.png" alt="form_different_focus.png - Version 1" class="thumbnail-img" data-index="5" data-version="1" onclick="openModal('report_images/version1/form_different_focus.png', 'form_different_focus.png', 'Version 1', 5)"></div>
+<div class="image-container"><div class="image-label">Version 2: test_images\version2</div><img src="report_images/version2/form_different_focus.png" alt="form_different_focus.png - Version 2" class="thumbnail-img" data-index="5" data-version="2" onclick="openModal('report_images/version2/form_different_focus.png', 'form_different_focus.png', 'Version 2', 5)"></div>
+</div>
+</div>
+</div>
+<div class="comparison-item" data-status="pass" data-name="form_different_header.png" data-index="6">
+<div class="comparison-header" onclick="toggleExpand(this)">
+<h3><span class="expand-icon">▶</span><span class="image-name">form_different_header.png</span></h3>
+<span class="status pass">✓ PASS</span>
+</div>
+<div class="comparison-content">
+<div class="details">
+<div class="details-row"><span class="details-label">Text Match:</span><span class="check">✓</span><span>Match</span></div>
+<div class="details-row"><span class="details-label">Focus Match:</span><span class="check">✓</span><span>Match</span></div>
+
+</div>
+<div class="images">
+<div class="image-container"><div class="image-label">Version 1: test_images\version1</div><img src="report_images/version1/form_different_header.png" alt="form_different_header.png - Version 1" class="thumbnail-img" data-index="6" data-version="1" onclick="openModal('report_images/version1/form_different_header.png', 'form_different_header.png', 'Version 1', 6)"></div>
+<div class="image-container"><div class="image-label">Version 2: test_images\version2</div><img src="report_images/version2/form_different_header.png" alt="form_different_header.png - Version 2" class="thumbnail-img" data-index="6" data-version="2" onclick="openModal('report_images/version2/form_different_header.png', 'form_different_header.png', 'Version 2', 6)"></div>
+</div>
+</div>
+</div>
+<div class="comparison-item" data-status="fail" data-name="form_different_radio.png" data-index="7">
+<div class="comparison-header" onclick="toggleExpand(this)">
+<h3><span class="expand-icon">▶</span><span class="image-name">form_different_radio.png</span></h3>
+<span class="status fail">✗ FAIL</span>
+</div>
+<div class="comparison-content">
+<div class="details">
+<div class="details-row"><span class="details-label">Text Match:</span><span class="cross">✗</span><span>Mismatch</span></div>
+<div class="details-row"><span class="details-label">Focus Match:</span><span class="check">✓</span><span>Match</span></div>
+<div class="difference">Form content differs in several fields</div><div class="difference info">💡 Click images to zoom and compare</div>
+</div>
+<div class="images">
+<div class="image-container"><div class="image-label">Version 1: test_images\version1</div><img src="report_images/version1/form_different_radio.png" alt="form_different_radio.png - Version 1" class="thumbnail-img" data-index="7" data-version="1" onclick="openModal('report_images/version1/form_different_radio.png', 'form_different_radio.png', 'Version 1', 7)"></div>
+<div class="image-container"><div class="image-label">Version 2: test_images\version2</div><img src="report_images/version2/form_different_radio.png" alt="form_different_radio.png - Version 2" class="thumbnail-img" data-index="7" data-version="2" onclick="openModal('report_images/version2/form_different_radio.png', 'form_different_radio.png', 'Version 2', 7)"></div>
+</div>
+</div>
+</div>
+<div class="comparison-item" data-status="pass" data-name="form_firstname_focus.png" data-index="8">
+<div class="comparison-header" onclick="toggleExpand(this)">
+<h3><span class="expand-icon">▶</span><span class="image-name">form_firstname_focus.png</span></h3>
+<span class="status pass">✓ PASS</span>
+</div>
+<div class="comparison-content">
+<div class="details">
+<div class="details-row"><span class="details-label">Text Match:</span><span class="check">✓</span><span>Match</span></div>
+<div class="details-row"><span class="details-label">Focus Match:</span><span class="check">✓</span><span>Match</span></div>
+
+</div>
+<div class="images">
+<div class="image-container"><div class="image-label">Version 1: test_images\version1</div><img src="report_images/version1/form_firstname_focus.png" alt="form_firstname_focus.png - Version 1" class="thumbnail-img" data-index="8" data-version="1" onclick="openModal('report_images/version1/form_firstname_focus.png', 'form_firstname_focus.png', 'Version 1', 8)"></div>
+<div class="image-container"><div class="image-label">Version 2: test_images\version2</div><img src="report_images/version2/form_firstname_focus.png" alt="form_firstname_focus.png - Version 2" class="thumbnail-img" data-index="8" data-version="2" onclick="openModal('report_images/version2/form_firstname_focus.png', 'form_firstname_focus.png', 'Version 2', 8)"></div>
+</div>
+</div>
+</div>
+<div class="comparison-item" data-status="fail" data-name="form_focus_diff.png" data-index="9">
+<div class="comparison-header" onclick="toggleExpand(this)">
+<h3><span class="expand-icon">▶</span><span class="image-name">form_focus_diff.png</span></h3>
+<span class="status fail">✗ FAIL</span>
+</div>
+<div class="comparison-content">
+<div class="details">
+<div class="details-row"><span class="details-label">Text Match:</span><span class="cross">✗</span><span>Mismatch</span></div>
+<div class="details-row"><span class="details-label">Focus Match:</span><span class="check">✓</span><span>Match</span></div>
+<div class="difference">Major content differences detected</div><div class="difference warning">⚠️ Significant structural or data changes</div><div class="difference info">💡 Manual review recommended</div>
+</div>
+<div class="images">
+<div class="image-container"><div class="image-label">Version 1: test_images\version1</div><img src="report_images/version1/form_focus_diff.png" alt="form_focus_diff.png - Version 1" class="thumbnail-img" data-index="9" data-version="1" onclick="openModal('report_images/version1/form_focus_diff.png', 'form_focus_diff.png', 'Version 1', 9)"></div>
+<div class="image-container"><div class="image-label">Version 2: test_images\version2</div><img src="report_images/version2/form_focus_diff.png" alt="form_focus_diff.png - Version 2" class="thumbnail-img" data-index="9" data-version="2" onclick="openModal('report_images/version2/form_focus_diff.png', 'form_focus_diff.png', 'Version 2', 9)"></div>
+</div>
+</div>
+</div>
+<div class="comparison-item" data-status="fail" data-name="form_list_vs_empty.png" data-index="10">
+<div class="comparison-header" onclick="toggleExpand(this)">
+<h3><span class="expand-icon">▶</span><span class="image-name">form_list_vs_empty.png</span></h3>
+<span class="status fail">✗ FAIL</span>
+</div>
+<div class="comparison-content">
+<div class="details">
+<div class="details-row"><span class="details-label">Text Match:</span><span class="cross">✗</span><span>Mismatch</span></div>
+<div class="details-row"><span class="details-label">Focus Match:</span><span class="cross">✗</span><span>Mismatch</span></div>
+<div class="difference">Major content differences detected</div><div class="difference warning">⚠️ Significant structural or data changes</div><div class="difference info">💡 Manual review recommended</div>
+</div>
+<div class="images">
+<div class="image-container"><div class="image-label">Version 1: test_images\version1</div><img src="report_images/version1/form_list_vs_empty.png" alt="form_list_vs_empty.png - Version 1" class="thumbnail-img" data-index="10" data-version="1" onclick="openModal('report_images/version1/form_list_vs_empty.png', 'form_list_vs_empty.png', 'Version 1', 10)"></div>
+<div class="image-container"><div class="image-label">Version 2: test_images\version2</div><img src="report_images/version2/form_list_vs_empty.png" alt="form_list_vs_empty.png - Version 2" class="thumbnail-img" data-index="10" data-version="2" onclick="openModal('report_images/version2/form_list_vs_empty.png', 'form_list_vs_empty.png', 'Version 2', 10)"></div>
+</div>
+</div>
+</div>
+<div class="comparison-item" data-status="fail" data-name="form_one_field_different.png" data-index="11">
+<div class="comparison-header" onclick="toggleExpand(this)">
+<h3><span class="expand-icon">▶</span><span class="image-name">form_one_field_different.png</span></h3>
+<span class="status fail">✗ FAIL</span>
+</div>
+<div class="comparison-content">
+<div class="details">
+<div class="details-row"><span class="details-label">Text Match:</span><span class="cross">✗</span><span>Mismatch</span></div>
+<div class="details-row"><span class="details-label">Focus Match:</span><span class="cross">✗</span><span>Mismatch</span></div>
+<div class="difference">Form content has significant differences</div><div class="difference info">💡 Review images carefully - multiple changes detected</div>
+</div>
+<div class="images">
+<div class="image-container"><div class="image-label">Version 1: test_images\version1</div><img src="report_images/version1/form_one_field_different.png" alt="form_one_field_different.png - Version 1" class="thumbnail-img" data-index="11" data-version="1" onclick="openModal('report_images/version1/form_one_field_different.png', 'form_one_field_different.png', 'Version 1', 11)"></div>
+<div class="image-container"><div class="image-label">Version 2: test_images\version2</div><img src="report_images/version2/form_one_field_different.png" alt="form_one_field_different.png - Version 2" class="thumbnail-img" data-index="11" data-version="2" onclick="openModal('report_images/version2/form_one_field_different.png', 'form_one_field_different.png', 'Version 2', 11)"></div>
+</div>
+</div>
+</div>
+<div class="comparison-item" data-status="pass" data-name="form_realistic_case.png" data-index="12">
+<div class="comparison-header" onclick="toggleExpand(this)">
+<h3><span class="expand-icon">▶</span><span class="image-name">form_realistic_case.png</span></h3>
+<span class="status pass">✓ PASS</span>
+</div>
+<div class="comparison-content">
+<div class="details">
+<div class="details-row"><span class="details-label">Text Match:</span><span class="check">✓</span><span>Match</span></div>
+<div class="details-row"><span class="details-label">Focus Match:</span><span class="check">✓</span><span>Match</span></div>
+
+</div>
+<div class="images">
+<div class="image-container"><div class="image-label">Version 1: test_images\version1</div><img src="report_images/version1/form_realistic_case.png" alt="form_realistic_case.png - Version 1" class="thumbnail-img" data-index="12" data-version="1" onclick="openModal('report_images/version1/form_realistic_case.png', 'form_realistic_case.png', 'Version 1', 12)"></div>
+<div class="image-container"><div class="image-label">Version 2: test_images\version2</div><img src="report_images/version2/form_realistic_case.png" alt="form_realistic_case.png - Version 2" class="thumbnail-img" data-index="12" data-version="2" onclick="openModal('report_images/version2/form_realistic_case.png', 'form_realistic_case.png', 'Version 2', 12)"></div>
+</div>
+</div>
+</div>
+<div class="comparison-item" data-status="pass" data-name="form_special_chars.png" data-index="13">
+<div class="comparison-header" onclick="toggleExpand(this)">
+<h3><span class="expand-icon">▶</span><span class="image-name">form_special_chars.png</span></h3>
+<span class="status pass">✓ PASS</span>
+</div>
+<div class="comparison-content">
+<div class="details">
+<div class="details-row"><span class="details-label">Text Match:</span><span class="check">✓</span><span>Match</span></div>
+<div class="details-row"><span class="details-label">Focus Match:</span><span class="check">✓</span><span>Match</span></div>
+
+</div>
+<div class="images">
+<div class="image-container"><div class="image-label">Version 1: test_images\version1</div><img src="report_images/version1/form_special_chars.png" alt="form_special_chars.png - Version 1" class="thumbnail-img" data-index="13" data-version="1" onclick="openModal('report_images/version1/form_special_chars.png', 'form_special_chars.png', 'Version 1', 13)"></div>
+<div class="image-container"><div class="image-label">Version 2: test_images\version2</div><img src="report_images/version2/form_special_chars.png" alt="form_special_chars.png - Version 2" class="thumbnail-img" data-index="13" data-version="2" onclick="openModal('report_images/version2/form_special_chars.png', 'form_special_chars.png', 'Version 2', 13)"></div>
+</div>
+</div>
+</div>
+<div class="comparison-item" data-status="pass" data-name="form_with_dialog.png" data-index="14">
+<div class="comparison-header" onclick="toggleExpand(this)">
+<h3><span class="expand-icon">▶</span><span class="image-name">form_with_dialog.png</span></h3>
+<span class="status pass">✓ PASS</span>
+</div>
+<div class="comparison-content">
+<div class="details">
+<div class="details-row"><span class="details-label">Text Match:</span><span class="check">✓</span><span>Match</span></div>
+<div class="details-row"><span class="details-label">Focus Match:</span><span class="check">✓</span><span>Match</span></div>
+
+</div>
+<div class="images">
+<div class="image-container"><div class="image-label">Version 1: test_images\version1</div><img src="report_images/version1/form_with_dialog.png" alt="form_with_dialog.png - Version 1" class="thumbnail-img" data-index="14" data-version="1" onclick="openModal('report_images/version1/form_with_dialog.png', 'form_with_dialog.png', 'Version 1', 14)"></div>
+<div class="image-container"><div class="image-label">Version 2: test_images\version2</div><img src="report_images/version2/form_with_dialog.png" alt="form_with_dialog.png - Version 2" class="thumbnail-img" data-index="14" data-version="2" onclick="openModal('report_images/version2/form_with_dialog.png', 'form_with_dialog.png', 'Version 2', 14)"></div>
+</div>
+</div>
+</div>
+<div class="no-results" id="noResults" style="display: none;"><div class="no-results-icon">🔍</div><h3>No matching results</h3><p>Try adjusting your filters or search term</p></div>
+</div>
+<div class="modal" id="imageModal" onclick="closeModal(event)">
+<span class="modal-close">&times;</span>
+<span class="modal-nav prev" onclick="event.stopPropagation(); navigateImage(-1)">‹</span>
+<img class="modal-content" id="modalImage">
+<span class="modal-nav next" onclick="event.stopPropagation(); navigateImage(1)">›</span>
+<div class="modal-info" id="modalInfo"></div>
+</div>
+<script>
+
+        let currentFilter = 'all';
+        let currentSearch = '';
+        let currentModalIndex = 0;
+        let allItems = [];
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            allItems = Array.from(document.querySelectorAll('.comparison-item'));
+        });
+        
+        function filterResults(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            applyFilters();
+        }
+        
+        function searchImages(query) {
+            currentSearch = query.toLowerCase();
+            applyFilters();
+        }
+        
+        function applyFilters() {
+            let visibleCount = 0;
+            allItems.forEach(item => {
+                const status = item.dataset.status;
+                const name = item.dataset.name;
+                const matchesFilter = currentFilter === 'all' || status === currentFilter;
+                const matchesSearch = currentSearch === '' || name.includes(currentSearch);
+                if (matchesFilter && matchesSearch) {
+                    item.classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+            document.getElementById('noResults').style.display = visibleCount === 0 ? 'block' : 'none';
+        }
+        
+        function toggleExpand(header) {
+            const item = header.closest('.comparison-item');
+            item.classList.toggle('expanded');
+        }
+        
+        function expandAll() {
+            const visibleItems = allItems.filter(item => !item.classList.contains('hidden'));
+            visibleItems.forEach(item => {
+                item.classList.add('expanded');
+            });
+        }
+        
+        function collapseAll() {
+            allItems.forEach(item => {
+                item.classList.remove('expanded');
+            });
+        }
+        
+        function openModal(src, name, version, index) {
+            currentModalIndex = index;
+            const modal = document.getElementById('imageModal');
+            const modalImg = document.getElementById('modalImage');
+            const modalInfo = document.getElementById('modalInfo');
+            modal.classList.add('active');
+            modalImg.src = src;
+            modalInfo.innerHTML = '<strong>' + name + '</strong><br>' + version;
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeModal(event) {
+            if (event.target.id === 'imageModal' || event.target.className === 'modal-close') {
+                const modal = document.getElementById('imageModal');
+                modal.classList.remove('active');
+                document.body.style.overflow = 'auto';
+            }
+        }
+        
+        function navigateImage(direction) {
+            const visibleItems = allItems.filter(item => !item.classList.contains('hidden'));
+            const currentItem = visibleItems.find(item => parseInt(item.dataset.index) === currentModalIndex);
+            if (!currentItem) return;
+            
+            const imgs = currentItem.querySelectorAll('.thumbnail-img');
+            if (imgs.length === 0) return;
+            
+            const modalImg = document.getElementById('modalImage');
+            const currentSrc = modalImg.src;
+            
+            // Find current image index by comparing full src URLs
+            let currentImgIndex = -1;
+            imgs.forEach((img, i) => {
+                if (img.src === currentSrc || img.src.endsWith(currentSrc.split('/').slice(-2).join('/'))) {
+                    currentImgIndex = i;
+                }
+            });
+            
+            // If we couldn't find the current image, default to first image
+            if (currentImgIndex === -1) {
+                currentImgIndex = 0;
+            }
+            
+            // Calculate next index (wraps around)
+            let nextImgIndex = currentImgIndex + direction;
+            
+            // Handle wrapping
+            if (nextImgIndex < 0) {
+                nextImgIndex = imgs.length - 1;
+            } else if (nextImgIndex >= imgs.length) {
+                nextImgIndex = 0;
+            }
+            
+            const nextImg = imgs[nextImgIndex];
+            
+            if (nextImg) {
+                modalImg.src = nextImg.src;
+                const version = nextImg.dataset.version === '1' ? 'Version 1' : 'Version 2';
+                const name = currentItem.querySelector('h3 .image-name').textContent;
+                document.getElementById('modalInfo').innerHTML = '<strong>' + name + '</strong><br>' + version;
+            }
+        }
+        
+        document.addEventListener('keydown', function(e) {
+            const modal = document.getElementById('imageModal');
+            if (modal.classList.contains('active')) {
+                if (e.key === 'Escape') {
+                    closeModal({ target: modal });
+                } else if (e.key === 'ArrowLeft') {
+                    navigateImage(-1);
+                    e.preventDefault();
+                } else if (e.key === 'ArrowRight') {
+                    navigateImage(1);
+                    e.preventDefault();
+                }
+            } else {
+                const visibleItems = allItems.filter(item => !item.classList.contains('hidden'));
+                const expandedItems = visibleItems.filter(item => item.classList.contains('expanded'));
+                if (e.key === 'ArrowDown') {
+                    if (expandedItems.length > 0) {
+                        const currentIndex = visibleItems.indexOf(expandedItems[0]);
+                        const nextItem = visibleItems[currentIndex + 1];
+                        if (nextItem) {
+                            expandedItems[0].classList.remove('expanded');
+                            nextItem.classList.add('expanded');
+                            nextItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    } else if (visibleItems.length > 0) {
+                        visibleItems[0].classList.add('expanded');
+                        visibleItems[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    e.preventDefault();
+                } else if (e.key === 'ArrowUp') {
+                    if (expandedItems.length > 0) {
+                        const currentIndex = visibleItems.indexOf(expandedItems[0]);
+                        const prevItem = visibleItems[currentIndex - 1];
+                        if (prevItem) {
+                            expandedItems[0].classList.remove('expanded');
+                            prevItem.classList.add('expanded');
+                            prevItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    }
+                    e.preventDefault();
+                }
+            }
+        });
+    
+</script>
+</body>
+</html>
